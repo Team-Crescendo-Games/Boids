@@ -23,7 +23,7 @@ A GPU-accelerated boids flocking simulation package for Unity, using compute sha
 
 ## Installation
 
-Add this package to your Unity project via the Package Manager using the git URL, or copy the package folder into your project's `Packages` directory.
+Add this package to your Unity project via the Package Manager using the git URL (https://github.com/Team-Crescendo-Games/Boids.git).
 
 ## Quick Start
 
