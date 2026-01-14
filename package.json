@@ -1,0 +1,10 @@
+{
+    "name": "com.teamcrescendo.boids",
+    "version": "1.0.0",
+    "displayName": "Boids",
+    "description": "GPU-accelerated boids flocking simulation using compute shaders for Unity.",
+    "unity": "6000.3",
+    "author": {
+        "name": "Ninghua Xu"
+    }
+}
