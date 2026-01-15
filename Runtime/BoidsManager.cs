@@ -133,8 +133,8 @@ namespace TeamCrescendo.Boids
             {
                 boidArray[i] = new Boid
                 {
-                    position = Random.insideUnitSphere * spawnRadius,
-                    direction = Random.onUnitSphere
+                    position = transform.TransformPoint(Random.insideUnitSphere * spawnRadius),
+                    direction = transform.TransformDirection(Random.onUnitSphere)
                 };
             }
 
@@ -185,42 +185,50 @@ namespace TeamCrescendo.Boids
                 targetBuffer.SetData(targetDataArr);
             }
 
-            if (obstacles.Count > 0)
+            int obstacleCount = totalObstacleCount;
+            if (obstacleCount > 0)
             {
-                int obstacleCount = totalObstacleCount;
                 if (obstacleBuffer == null || obstacleBuffer.count != obstacleCount)
                 {
                     obstacleBuffer?.Release();
-                    obstacleBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, obstacleCount, ObstacleData.size);
+                    obstacleBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, obstacleCount,
+                        ObstacleData.size);
                 }
 
                 ObstacleData[] obsDataList = new ObstacleData[obstacleCount];
-                
-                int i = 0;
+
+                int obstacleIndex = 0;
                 foreach (var obs in obstacles)
                 {
-                    if (obs.global) throw new ArgumentException("Global obstacles should not be added to the local obstacles list.");
-                    obsDataList[i] = new ObstacleData
+                    if (obs.global)
+                        throw new ArgumentException(
+                            "Global obstacles should not be added to the local obstacles list.");
+                    obsDataList[obstacleIndex] = new ObstacleData
                     {
                         position = obs.transform.position,
                         radius = obs.radius
                     };
-                    i++;
+                    obstacleIndex++;
                 }
-                
+
                 // add global obstacles
                 foreach (var globalObs in BoidsObstacle.GlobalObstacles)
                 {
                     Assert.IsTrue(globalObs.global);
-                    obsDataList[i] = new ObstacleData
+                    obsDataList[obstacleIndex] = new ObstacleData
                     {
                         position = globalObs.transform.position,
                         radius = globalObs.radius
                     };
-                    i++;
+                    obstacleIndex++;
                 }
-                
+
                 obstacleBuffer.SetData(obsDataList);
+            }
+            else
+            {
+                obstacleBuffer?.Release();
+                obstacleBuffer = null;
             }
         }
 
