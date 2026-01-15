@@ -276,10 +276,8 @@ Shader "Custom/BoidsInstanced"
             #pragma target 5.0
             
             #pragma multi_compile_instancing
-            #pragma multi_compile_shadowcaster 
+            #pragma multi_compile_shadowcaster
 
-            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
-            
             #define UNITY_INDIRECT_DRAW_ARGS IndirectDrawIndexedArgs
             #include "UnityIndirect.cginc"
 
@@ -312,6 +310,111 @@ Shader "Custom/BoidsInstanced"
                 return 0;
             }
             
+            ENDHLSL
+        }
+
+        // ---------------------------------------------------------
+        // Pass: DepthNormals
+        // ---------------------------------------------------------
+        Pass
+        {
+            Name "DepthNormals"
+            Tags { "LightMode" = "DepthNormals" }
+
+            ZWrite On
+            ZTest LEqual
+
+            HLSLPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+            #pragma target 5.0
+            #pragma multi_compile_instancing
+
+            #define UNITY_INDIRECT_DRAW_ARGS IndirectDrawIndexedArgs
+            #include "UnityIndirect.cginc"
+
+            struct Attributes
+            {
+                float4 positionOS   : POSITION;
+                float3 normalOS     : NORMAL;
+                float4 tangentOS    : TANGENT;
+                uint instanceID     : SV_InstanceID;
+            };
+
+            struct Varyings
+            {
+                float4 positionCS   : SV_POSITION;
+                float3 normalWS     : TEXCOORD0;
+            };
+
+            Varyings vert(Attributes input)
+            {
+                Varyings output = (Varyings)0;
+                InitIndirectDrawArgs(0);
+                BoidWorldData boidData = CalculateBoidData(input.instanceID, input.positionOS.xyz, input.normalOS, input.tangentOS.xyz);
+                output.positionCS = TransformWorldToHClip(boidData.positionWS);
+                output.normalWS = boidData.normalWS;
+                return output;
+            }
+
+            half4 frag(Varyings input) : SV_Target
+            {
+                float3 normalWS = normalize(input.normalWS);
+                // Convert to View Space for URP encoding
+                float3 normalVS = TransformWorldToViewDir(normalWS, true);
+                
+                // Pack normal into RG channels (standard URP requirement for DepthNormals)
+                return float4(PackNormalOctRectEncode(normalVS), 0.0, 0.0);
+            }
+            ENDHLSL
+        }
+
+        // ---------------------------------------------------------
+        // Pass: DepthOnly
+        // ---------------------------------------------------------
+        Pass
+        {
+            Name "DepthOnly"
+            Tags { "LightMode" = "DepthOnly" }
+
+            ZWrite On
+            ColorMask 0
+
+            HLSLPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+            #pragma target 5.0
+            #pragma multi_compile_instancing
+
+            #define UNITY_INDIRECT_DRAW_ARGS IndirectDrawIndexedArgs
+            #include "UnityIndirect.cginc"
+
+            struct Attributes
+            {
+                float4 positionOS   : POSITION;
+                float3 normalOS     : NORMAL;
+                float4 tangentOS    : TANGENT;
+                uint instanceID     : SV_InstanceID;
+            };
+
+            struct Varyings
+            {
+                float4 positionCS   : SV_POSITION;
+            };
+
+            Varyings vert(Attributes input)
+            {
+                Varyings output = (Varyings)0;
+                InitIndirectDrawArgs(0);
+                BoidWorldData boidData = CalculateBoidData(input.instanceID, input.positionOS.xyz, input.normalOS, input.tangentOS.xyz);
+                output.positionCS = TransformWorldToHClip(boidData.positionWS);
+                return output;
+            }
+
+            half4 frag(Varyings input) : SV_Target
+            {
+                return 0;
+            }
             ENDHLSL
         }
     }
