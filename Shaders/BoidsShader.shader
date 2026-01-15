@@ -2,24 +2,24 @@ Shader "Custom/BoidsInstanced"
 {
     Properties
     {
-        [Header(Base)]
+        [Header(Base Maps)]
         _BaseMap ("Albedo", 2D) = "white" {}
-        [Header(Normal Map)]
         _BumpMap ("Normal Map", 2D) = "bump" {}
         _BumpScale ("Normal Scale", Float) = 1.0
+        [Toggle] _USE_ADDITIONAL_LIGHTS("Additional Lights", Float) = 0.0
 
-        [Header(Color Variation)]
+        [Header(Albedo Variation)]
         _ColorA ("Color A", Color) = (1,1,1,1)
         _ColorB ("Color B", Color) = (0,0.5,1,1)
+        
+        [Header(Scale)]
+        _MinScale ("Min Scale", Float) = 0.5
+        _MaxScale ("Max Scale", Float) = 1.5
 
-        [Header(Animation)]
+        [Header(Tail Animation)]
         _WaveSpeed ("Wave Speed", Float) = 5.0
         _WaveFrequency ("Wave Frequency", Float) = 2.0
         _WaveAmplitude ("Wave Amplitude", Float) = 0.2
-        
-        [Header(Additional Lights)]
-        [Space(10)]
-        [Toggle] _USE_ADDITIONAL_LIGHTS("Additional Lights", Float) = 0.0
         
         [Header(Emission)]
         [HDR] _EmissionColor ("Emission Color", Color) = (1, 0.5, 0, 1)
@@ -37,6 +37,7 @@ Shader "Custom/BoidsInstanced"
         // ---------------------------------------------------------
         HLSLINCLUDE
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/CommonMaterial.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/RealtimeLights.hlsl"
             
             struct Boid
@@ -59,6 +60,8 @@ Shader "Custom/BoidsInstanced"
                 float4 _EmissionColor;
                 float _MinSpeed;
                 float _MaxSpeed;
+                float _MinScale;
+                float _MaxScale;
             CBUFFER_END
 
             float rand(float co) { return frac(sin(co * 12.9898) * 43758.5453); }
@@ -87,6 +90,13 @@ Shader "Custom/BoidsInstanced"
                 float3 xaxis = normalize(cross(up, dir));
                 float3 yaxis = normalize(cross(dir, xaxis));
                 if (length(xaxis) < 0.001) { xaxis = float3(1, 0, 0); yaxis = float3(0, 0, 1); }
+
+                // apply a random scale
+                float scaleRandom = rand(instanceID + 73.5); 
+                float currentScale = lerp(_MinScale, _MaxScale, scaleRandom);
+                xaxis *= currentScale;
+                yaxis *= currentScale;
+                dir *= currentScale;
 
                 float4x4 objectToWorld = float4x4(
                     xaxis.x, yaxis.x, dir.x, pos.x,
@@ -137,6 +147,7 @@ Shader "Custom/BoidsInstanced"
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE
             #pragma multi_compile_fragment _ _LIGHT_COOKIES
             #pragma multi_compile_fragment _ _SHADOWS_SOFT _SHADOWS_SOFT_LOW _SHADOWS_SOFT_MEDIUM _SHADOWS_SOFT_HIGH
+            
             #pragma multi_compile_instancing
             
             #pragma shader_feature _USE_ADDITIONAL_LIGHTS_ON
@@ -192,7 +203,7 @@ Shader "Custom/BoidsInstanced"
             {
                 float NdotL = dot(normalWS, normalize(light.direction));
                 NdotL = (NdotL + 1) * 0.5; // Half Lambert
-                return saturate(NdotL) * light.color * light.distanceAttenuation * light.shadowAttenuation;
+                return saturate(NdotL) * light.color * light.shadowAttenuation;
             }
 
             half4 frag(Varyings input) : SV_Target0
@@ -206,19 +217,20 @@ Shader "Custom/BoidsInstanced"
                 float3 bitangent = cross(input.normalWS, input.tangentWS.xyz) * input.tangentWS.w;
                 float3x3 TBN = float3x3(input.tangentWS.xyz, bitangent, input.normalWS);
                 float3 normalWS = normalize(mul(normalTS, TBN));
-
-                float3 lighting = 0;
-                float4 shadowMask = float4(1, 1, 1, 1);
-                float4 shadowCoord = TransformWorldToShadowCoord(input.positionWS);
                 
-                Light mainLight = GetMainLight(shadowCoord, input.positionWS, shadowMask);
-                lighting += ShadingFunction(normalWS, mainLight);
-
                 InputData inputData = (InputData)0;
                 inputData.positionWS = input.positionWS;
                 inputData.normalWS = normalWS;
                 inputData.viewDirectionWS = GetWorldSpaceNormalizeViewDir(input.positionWS);
-                inputData.normalizedScreenSpaceUV = GetNormalizedScreenSpaceUV(input.positionCS);
+                inputData.normalizedScreenSpaceUV = GetNormalizedScreenSpaceUV(input.positionCS.xy);
+
+                half4 shadowMask = CalculateShadowMask(inputData);
+                
+                float3 lighting = 0;
+                
+                Light mainLight = GetMainLight(TransformWorldToShadowCoord(input.positionWS), input.positionWS, shadowMask);
+                mainLight.distanceAttenuation = 1;
+                lighting += ShadingFunction(normalWS, mainLight);
                 
 #if defined(_ADDITIONAL_LIGHTS) && defined(_USE_ADDITIONAL_LIGHTS_ON)
 	            

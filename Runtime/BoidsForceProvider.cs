@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace TeamCrescendo.Boids
 {
-    public class BoidForceProvider : MonoBehaviour
+    public class BoidsForceProvider : MonoBehaviour
     {
         [Tooltip("Positive (+) pulls boids towards. Negative (-) pushes boids away.")]
         public float weight = 10f;

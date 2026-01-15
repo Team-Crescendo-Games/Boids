@@ -1,10 +1,13 @@
+using System;
 using UnityEngine;
 using UnityEngine.Rendering;
 using System.Collections.Generic;
+using UnityEngine.Assertions;
+using Random = UnityEngine.Random;
 
 namespace TeamCrescendo.Boids
 {
-    public class BoidManager : MonoBehaviour
+    public class BoidsManager : MonoBehaviour
     {
         [SerializeField] private ComputeShader computeShader;
         [SerializeField] private Material boidMaterial;
@@ -12,8 +15,9 @@ namespace TeamCrescendo.Boids
         private ComputeShader computeShaderInstance;
         private int kernel;
     
-        [SerializeField] private List<BoidForceProvider> targets = new();
-        [SerializeField] private List<BoidObstacle> obstacles = new();
+        [SerializeField] private List<BoidsForceProvider> targets = new();
+        [SerializeField] private List<BoidsObstacle> obstacles = new();
+        private int totalObstacleCount => obstacles.Count + BoidsObstacle.GlobalObstacles.Count;
 
         private GraphicsBuffer boidBuffer;
         private GraphicsBuffer targetBuffer;
@@ -183,25 +187,40 @@ namespace TeamCrescendo.Boids
 
             if (obstacles.Count > 0)
             {
-                if (obstacleBuffer == null || obstacleBuffer.count != obstacles.Count)
+                int obstacleCount = totalObstacleCount;
+                if (obstacleBuffer == null || obstacleBuffer.count != obstacleCount)
                 {
                     obstacleBuffer?.Release();
-                    obstacleBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, obstacles.Count, ObstacleData.size);
+                    obstacleBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, obstacleCount, ObstacleData.size);
                 }
 
-                ObstacleData[] obsData = new ObstacleData[obstacles.Count];
-                for (int i = 0; i < obstacles.Count; i++)
+                ObstacleData[] obsDataList = new ObstacleData[obstacleCount];
+                
+                int i = 0;
+                foreach (var obs in obstacles)
                 {
-                    if (obstacles[i] != null)
+                    if (obs.global) throw new ArgumentException("Global obstacles should not be added to the local obstacles list.");
+                    obsDataList[i] = new ObstacleData
                     {
-                        obsData[i] = new ObstacleData
-                        {
-                            position = obstacles[i].transform.position,
-                            radius = obstacles[i].radius
-                        };
-                    }
+                        position = obs.transform.position,
+                        radius = obs.radius
+                    };
+                    i++;
                 }
-                obstacleBuffer.SetData(obsData);
+                
+                // add global obstacles
+                foreach (var globalObs in BoidsObstacle.GlobalObstacles)
+                {
+                    Assert.IsTrue(globalObs.global);
+                    obsDataList[i] = new ObstacleData
+                    {
+                        position = globalObs.transform.position,
+                        radius = globalObs.radius
+                    };
+                    i++;
+                }
+                
+                obstacleBuffer.SetData(obsDataList);
             }
         }
 
@@ -227,7 +246,7 @@ namespace TeamCrescendo.Boids
         
             computeShaderInstance.SetInt(NumBoids_ID, boidCount);
             computeShaderInstance.SetInt(NumTargets_ID, targets.Count);
-            computeShaderInstance.SetInt(NumObstacles_ID, obstacles.Count);
+            computeShaderInstance.SetInt(NumObstacles_ID, totalObstacleCount);
 
             computeShaderInstance.SetFloat(MoveSpeed_ID, moveSpeed);
             computeShaderInstance.SetFloat(CellRadius_ID, cellRadius);

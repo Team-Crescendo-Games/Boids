@@ -8,11 +8,10 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: m_ExampleFish
-  m_Shader: {fileID: 4800000, guid: ec48958ecafc4efd994812924dd40820, type: 3}
+  m_Shader: {fileID: 4800000, guid: c9745466c498d48c5a08076e80068575, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
-  m_ValidKeywords:
-  - _USE_ADDITIONAL_LIGHTS_ON
+  m_ValidKeywords: []
   m_InvalidKeywords: []
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 1
@@ -39,9 +38,11 @@ Material:
     m_Ints: []
     m_Floats:
     - _BumpScale: 1
-    - _MaxSpeed: 58.9
+    - _MaxScale: 2
+    - _MaxSpeed: 25.84
+    - _MinScale: 0.5
     - _MinSpeed: 2
-    - _USE_ADDITIONAL_LIGHTS: 1
+    - _USE_ADDITIONAL_LIGHTS: 0
     - _WaveAmplitude: 0.2
     - _WaveFrequency: 2
     - _WaveSpeed: 5

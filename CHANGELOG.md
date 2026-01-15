@@ -27,3 +27,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Speed-based emission
   - Shadow casting support
 - Sample assets including fish mesh, textures, material, and demo scene
+
+## [1.1.0] - 2026-01-14
+### Fixed
+- Shader not working on Windows
+
+### Added
+- Global obstacles
+- Ability to scale boids on the shader
