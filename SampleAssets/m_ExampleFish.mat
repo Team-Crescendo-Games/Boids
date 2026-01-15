@@ -11,7 +11,8 @@ Material:
   m_Shader: {fileID: 4800000, guid: c9745466c498d48c5a08076e80068575, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
-  m_ValidKeywords: []
+  m_ValidKeywords:
+  - _USE_ADDITIONAL_LIGHTS_ON
   m_InvalidKeywords: []
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 1
@@ -42,7 +43,7 @@ Material:
     - _MaxSpeed: 25.84
     - _MinScale: 0.5
     - _MinSpeed: 2
-    - _USE_ADDITIONAL_LIGHTS: 0
+    - _USE_ADDITIONAL_LIGHTS: 1
     - _WaveAmplitude: 0.2
     - _WaveFrequency: 2
     - _WaveSpeed: 5

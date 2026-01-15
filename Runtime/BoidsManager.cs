@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using System.Collections.Generic;
 using UnityEngine.Assertions;
+using UnityEngine.Serialization;
 using Random = UnityEngine.Random;
 
 namespace TeamCrescendo.Boids
@@ -10,53 +11,52 @@ namespace TeamCrescendo.Boids
     public class BoidsManager : MonoBehaviour
     {
         [SerializeField] private ComputeShader computeShader;
+        [Tooltip("The material used to render the boids. Ensure GPU Instancing is enabled.")]
         [SerializeField] private Material boidMaterial;
+        [Tooltip("The mesh geometry used for each individual boid.")]
         [SerializeField] private Mesh boidMesh;
         private ComputeShader computeShaderInstance;
         private int kernel;
     
-        [SerializeField] private List<BoidsForceProvider> targets = new();
+        [Tooltip("List of objects that attracts/repels boids.")]
+        [SerializeField] private List<BoidsForceProvider> forceProviders = new();
+        
+        [Tooltip("List of objects that boids avoid.")]
         [SerializeField] private List<BoidsObstacle> obstacles = new();
-        private int totalObstacleCount => obstacles.Count + BoidsObstacle.GlobalObstacles.Count;
+        private int TotalObstacleCount => obstacles.Count + BoidsObstacle.GlobalObstacles.Count;
 
-        private GraphicsBuffer boidBuffer;
+        private GraphicsBuffer boidsBuffer;
         private GraphicsBuffer targetBuffer;
         private GraphicsBuffer obstacleBuffer;
         private GraphicsBuffer velocityBuffer;
+        private GraphicsBuffer zoneBuffer;
         private GraphicsBuffer argsBuffer;
 
-        private struct Boid
-        {
-            public Vector3 position; 
-            public Vector3 direction;
-            public const int size = 24;
-        }
-
-        private struct ObstacleData
-        {
-            public Vector3 position; 
-            public float radius;
-            public const int size = 16;
-        }
-    
-        private struct TargetData
-        {
-            public Vector3 position;
-            public float weight; // Encoded in the .w component of a float4 in shader
-            public const int size = 16;
-        }
-
-        // Array to hold args data before setting buffer
         private GraphicsBuffer.IndirectDrawIndexedArgs[] commandData;
-        private Boid[] boidArray;
+        private Boid[] boidsArray;
         private RenderParams renderParams;
     
         [Header("Settings")]
-        [SerializeField] private int boidCount = 1000;
-        [SerializeField] private float spawnRadius = 50f;
+        [SerializeField, Min(1)] private int boidCount = 1000;
+        [Tooltip("Whether boids cast shadows.")] 
         [SerializeField] private bool castShadows = false;
 
-        [Header("Boid Behavior")]
+        private enum SpawnShape
+        {
+            Sphere,
+            Box,
+            Circle
+        }
+        
+        [Header("Spawn")]
+        [Tooltip("The shape of the volume where boids are initially spawned.")]
+        [SerializeField] private SpawnShape spawnShape = SpawnShape.Sphere;
+        [Tooltip("The radius used when spawning in a Sphere or Circle shape.")]
+        [SerializeField] private float spawnRadius = 50f;
+        [Tooltip("The dimensions of the box when using Box spawn shape.")]
+        [SerializeField] private Vector3 spawnBoxSize = new (50f, 50f, 50f);
+
+        [Header("Flocking Behavior")]
         [SerializeField] private float moveSpeed = 5f;
         [SerializeField] private float cellRadius = 5f;
         [SerializeField] private float separationWeight = 5f;
@@ -79,12 +79,14 @@ namespace TeamCrescendo.Boids
         private static readonly int Targets_ID = Shader.PropertyToID("targets");
         private static readonly int Obstacles_ID = Shader.PropertyToID("obstacles");
         private static readonly int VelocityBuffer_ID = Shader.PropertyToID("velocityBuffer");
+        private static readonly int Zones_ID = Shader.PropertyToID("zones");
     
         private static readonly int Time_ID = Shader.PropertyToID("time");
         private static readonly int DeltaTime_ID = Shader.PropertyToID("deltaTime");
         private static readonly int NumBoids_ID = Shader.PropertyToID("numBoids");
         private static readonly int NumTargets_ID = Shader.PropertyToID("numTargets");
         private static readonly int NumObstacles_ID = Shader.PropertyToID("numObstacles");
+        private static readonly int NumZones_ID = Shader.PropertyToID("numZones");
     
         private static readonly int NoiseScale_ID = Shader.PropertyToID("noiseScale");
         private static readonly int NoiseScroll_ID = Shader.PropertyToID("noiseScroll");
@@ -119,27 +121,94 @@ namespace TeamCrescendo.Boids
 
         private void Update()
         {
-            if (boidBuffer == null || !boidBuffer.IsValid()) return;
+            if (boidsBuffer == null || !boidsBuffer.IsValid()) return;
 
             UpdateDynamicBuffers();
             DispatchCompute();
             RenderBoids();
         }
+        
+        private void OnDrawGizmosSelected()
+        {
+            Gizmos.color = new Color(0f, 1f, 1f, 0.5f);
+            
+            Matrix4x4 originalMatrix = Gizmos.matrix;
+            Gizmos.matrix = transform.localToWorldMatrix;
+
+            switch (spawnShape)
+            {
+                case SpawnShape.Sphere:
+                {
+                    Gizmos.DrawWireSphere(Vector3.zero, spawnRadius);
+                    break;
+                }
+                case SpawnShape.Box:
+                {
+                    Gizmos.DrawWireCube(Vector3.zero, spawnBoxSize);
+                    break;
+                }
+                case SpawnShape.Circle:
+                {
+                    int segments = 32;
+                    float angleStep = 360f / segments;
+                    Vector3 prevPoint = new Vector3(spawnRadius, 0f, 0f);
+
+                    for (int i = 1; i <= segments; i++)
+                    {
+                        float angle = i * angleStep * Mathf.Deg2Rad;
+                        Vector3 nextPoint = new Vector3(
+                            Mathf.Cos(angle) * spawnRadius, 
+                            0f, 
+                            Mathf.Sin(angle) * spawnRadius
+                        );
+                        
+                        Gizmos.DrawLine(prevPoint, nextPoint);
+                        prevPoint = nextPoint;
+                    }
+                    break;
+                }
+            }
+
+            // Restore the original matrix to avoid affecting other gizmos
+            Gizmos.matrix = originalMatrix;
+        }
 
         private void InitializeBoids()
         {
-            boidArray = new Boid[boidCount];
+            boidsArray = new Boid[boidCount];
             for (int i = 0; i < boidCount; i++)
             {
-                boidArray[i] = new Boid
+                Vector3 randomLocalPos = Vector3.zero;
+
+                switch (spawnShape)
                 {
-                    position = transform.TransformPoint(Random.insideUnitSphere * spawnRadius),
+                    case SpawnShape.Sphere:
+                        randomLocalPos = Random.insideUnitSphere * spawnRadius;
+                        break;
+                    
+                    case SpawnShape.Box:
+                        randomLocalPos = new Vector3(
+                            (Random.value - 0.5f) * spawnBoxSize.x,
+                            (Random.value - 0.5f) * spawnBoxSize.y,
+                            (Random.value - 0.5f) * spawnBoxSize.z
+                        );
+                        break;
+                    
+                    case SpawnShape.Circle:
+                        Vector2 circle = Random.insideUnitCircle * spawnRadius;
+                        randomLocalPos = new Vector3(circle.x, 0f, circle.y);
+                        break;
+                }
+
+                boidsArray[i] = new Boid
+                {
+                    position = transform.TransformPoint(randomLocalPos),
                     direction = transform.TransformDirection(Random.onUnitSphere)
                 };
             }
 
-            boidBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, boidCount, Boid.size);
-            boidBuffer.SetData(boidArray);
+            boidsBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, boidCount, Boid.size);
+            boidsBuffer.SetData(boidsArray);
         
             velocityBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, boidCount, sizeof(float) * 3);
         }
@@ -157,91 +226,111 @@ namespace TeamCrescendo.Boids
             argsBuffer.SetData(commandData);
         }
 
+        private void ReallocateBuffer(ref GraphicsBuffer buffer, int count, int stride)
+        {
+            int bufferSize = count > 0 ? count : 1;
+
+            // Reallocate buffer if null or size has changed
+            if (buffer == null || buffer.count != bufferSize)
+            {
+                buffer?.Release();
+                buffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, bufferSize, stride);
+            }
+        }
+
         private void UpdateDynamicBuffers()
         {
-            if (targets.Count > 0)
-            {
-                // Reallocate if count changes
-                if (targetBuffer == null || targetBuffer.count != targets.Count)
-                {
-                    targetBuffer?.Release();
-                    targetBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, targets.Count, TargetData.size);
-                }
+            int targetCount = forceProviders.Count > 0 ? forceProviders.Count : 1;
+            
+            ReallocateBuffer(ref targetBuffer, targetCount, TargetData.size);
 
-                TargetData[] targetDataArr = new TargetData[targets.Count];
-                for (int i = 0; i < targets.Count; i++)
+            if (forceProviders.Count > 0)
+            {
+                TargetData[] targetDataArr = new TargetData[forceProviders.Count];
+                for (int i = 0; i < forceProviders.Count; i++)
                 {
-                    if (targets[i] != null)
+                    if (forceProviders[i] != null)
                     {
                         targetDataArr[i] = new TargetData
                         {
-                            position = targets[i].transform.position,
-                            // If influenceRange is needed on GPU, we could pack it, 
-                            // but for now we pack Weight.
-                            weight = targets[i].weight 
+                            position = forceProviders[i].transform.position,
+                            weight = forceProviders[i].weight
                         };
                     }
                 }
                 targetBuffer.SetData(targetDataArr);
             }
+            // If targets.Count == 0, we simply leave the size-1 buffer bound 
+            // but don't care what data is in it, because we send numTargets = 0.
 
-            int obstacleCount = totalObstacleCount;
-            if (obstacleCount > 0)
+            // obstacles
+            int realObstacleCount = TotalObstacleCount;
+            int bufferObstacleCount = realObstacleCount > 0 ? realObstacleCount : 1;
+
+            ReallocateBuffer(ref obstacleBuffer, bufferObstacleCount, ObstacleData.size);
+
+            if (realObstacleCount > 0)
             {
-                if (obstacleBuffer == null || obstacleBuffer.count != obstacleCount)
-                {
-                    obstacleBuffer?.Release();
-                    obstacleBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, obstacleCount,
-                        ObstacleData.size);
-                }
-
-                ObstacleData[] obsDataList = new ObstacleData[obstacleCount];
-
+                ObstacleData[] obsDataList = new ObstacleData[realObstacleCount];
                 int obstacleIndex = 0;
+                
+                // Add local obstacles
                 foreach (var obs in obstacles)
                 {
-                    if (obs.global)
-                        throw new ArgumentException(
-                            "Global obstacles should not be added to the local obstacles list.");
-                    obsDataList[obstacleIndex] = new ObstacleData
+                    obsDataList[obstacleIndex++] = new ObstacleData
                     {
                         position = obs.transform.position,
                         radius = obs.radius
                     };
-                    obstacleIndex++;
                 }
-
-                // add global obstacles
+                // Add global obstacles
                 foreach (var globalObs in BoidsObstacle.GlobalObstacles)
                 {
-                    Assert.IsTrue(globalObs.global);
-                    obsDataList[obstacleIndex] = new ObstacleData
+                    obsDataList[obstacleIndex++] = new ObstacleData
                     {
                         position = globalObs.transform.position,
                         radius = globalObs.radius
                     };
-                    obstacleIndex++;
                 }
-
                 obstacleBuffer.SetData(obsDataList);
             }
-            else
+
+            // zones
+            int realZoneCount = BoidsZone.ActiveZones.Count;
+            int bufferZoneCount = realZoneCount > 0 ? realZoneCount : 1;
+
+            ReallocateBuffer(ref zoneBuffer, bufferZoneCount, ZoneData.size);
+
+            if (realZoneCount > 0)
             {
-                obstacleBuffer?.Release();
-                obstacleBuffer = null;
+                var activeZones = BoidsZone.ActiveZones;
+                ZoneData[] zoneDataArr = new ZoneData[realZoneCount];
+                for(int i=0; i<realZoneCount; i++)
+                {
+                    var z = activeZones[i];
+                    zoneDataArr[i] = new ZoneData
+                    {
+                        worldToLocal = z.transform.worldToLocalMatrix,
+                        localToWorld = z.transform.localToWorldMatrix,
+                        dimensions = z.dimensions,
+                        type = (int)z.type,
+                    };
+                }
+                zoneBuffer.SetData(zoneDataArr);
             }
         }
 
         private void DispatchCompute()
         {
-            computeShaderInstance.SetBuffer(kernel, Boids_ID, boidBuffer);
+            computeShaderInstance.SetBuffer(kernel, Boids_ID, boidsBuffer);
             computeShaderInstance.SetBuffer(kernel, VelocityBuffer_ID, velocityBuffer);    
 
             if (targetBuffer != null && targetBuffer.IsValid())
                 computeShaderInstance.SetBuffer(kernel, Targets_ID, targetBuffer);
-
             if (obstacleBuffer != null && obstacleBuffer.IsValid())
                 computeShaderInstance.SetBuffer(kernel, Obstacles_ID, obstacleBuffer);
+            if (zoneBuffer != null && zoneBuffer.IsValid())
+                computeShaderInstance.SetBuffer(kernel, Zones_ID, zoneBuffer);
 
             computeShaderInstance.SetFloat(Time_ID, Time.time);
             computeShaderInstance.SetFloat(DeltaTime_ID, Time.deltaTime);
@@ -253,8 +342,9 @@ namespace TeamCrescendo.Boids
             computeShaderInstance.SetFloat(TurbulencePower_ID, turbulencePower);
         
             computeShaderInstance.SetInt(NumBoids_ID, boidCount);
-            computeShaderInstance.SetInt(NumTargets_ID, targets.Count);
-            computeShaderInstance.SetInt(NumObstacles_ID, totalObstacleCount);
+            computeShaderInstance.SetInt(NumTargets_ID, forceProviders.Count);
+            computeShaderInstance.SetInt(NumObstacles_ID, TotalObstacleCount);
+            computeShaderInstance.SetInt(NumZones_ID, BoidsZone.ActiveZones.Count);
 
             computeShaderInstance.SetFloat(MoveSpeed_ID, moveSpeed);
             computeShaderInstance.SetFloat(CellRadius_ID, cellRadius);
@@ -269,7 +359,7 @@ namespace TeamCrescendo.Boids
 
         private void RenderBoids()
         {
-            renderParams.matProps.SetBuffer(BoidBuffer_ID, boidBuffer);
+            renderParams.matProps.SetBuffer(BoidBuffer_ID, boidsBuffer);
             renderParams.matProps.SetBuffer(VelocityBuffer_ID, velocityBuffer);
 
             Graphics.RenderMeshIndirect(
@@ -282,8 +372,8 @@ namespace TeamCrescendo.Boids
 
         private void OnDestroy()
         {
-            boidBuffer?.Release();
-            boidBuffer = null;
+            boidsBuffer?.Release();
+            boidsBuffer = null;
         
             velocityBuffer?.Release();
             velocityBuffer = null;
@@ -296,6 +386,9 @@ namespace TeamCrescendo.Boids
         
             argsBuffer?.Release();
             argsBuffer = null;
+            
+            zoneBuffer?.Release();
+            zoneBuffer = null;
         
             if (computeShaderInstance != null)
             {

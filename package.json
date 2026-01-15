@@ -1,6 +1,6 @@
 {
     "name": "com.teamcrescendo.boids",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "displayName": "Boids",
     "description": "GPU-accelerated boids flocking simulation using compute shaders for Unity.",
     "unity": "6000.0",

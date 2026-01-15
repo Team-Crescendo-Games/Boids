@@ -1038,6 +1038,7 @@ Transform:
   - {fileID: 1519368186}
   - {fileID: 1887292011}
   - {fileID: 1114957412}
+  - {fileID: 1551036276}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1446008000
@@ -1055,14 +1056,15 @@ MonoBehaviour:
   computeShader: {fileID: 7200000, guid: 775c0a8e996cc40a8897f80c75e1f925, type: 3}
   boidMaterial: {fileID: 2100000, guid: 7ac7d10257c7a47eb8d6e5494fe3d8b6, type: 2}
   boidMesh: {fileID: 4300000, guid: 49a87e3402ce60f4eba9b0498164bdd5, type: 3}
-  targets:
-  - {fileID: 1519368187}
+  forceProviders: []
   obstacles:
   - {fileID: 1887292007}
   - {fileID: 1114957413}
   boidCount: 1000
-  spawnRadius: 50
   castShadows: 1
+  spawnShape: 1
+  spawnRadius: 50
+  spawnBoxSize: {x: 50, y: 5, z: 50}
   moveSpeed: 10
   cellRadius: 10
   separationWeight: 5
@@ -1243,6 +1245,52 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1551036275
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1551036276}
+  - component: {fileID: 1551036277}
+  m_Layer: 0
+  m_Name: Zone
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1551036276
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1551036275}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1446007999}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1551036277
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1551036275}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fcbaf53d014a48e992f9e603bd1dc66c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  type: 0
+  dimensions: {x: 50, y: 1.5, z: 50}
 --- !u!1 &1578579368
 GameObject:
   m_ObjectHideFlags: 0

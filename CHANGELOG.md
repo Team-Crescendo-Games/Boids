@@ -35,3 +35,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Global obstacles
 - Ability to scale boids on the shader
+
+## [1.2.0] - 2026-01-15
+### Added
+- Hard clamp zones
+- Spawning shapes
+- Tooltips!
