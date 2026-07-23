@@ -203,7 +203,7 @@ Shader "Custom/BoidsInstanced"
             {
                 float NdotL = dot(normalWS, normalize(light.direction));
                 NdotL = (NdotL + 1) * 0.5; // Half Lambert
-                return saturate(NdotL) * light.color * light.shadowAttenuation;
+                return saturate(NdotL) * light.color * (light.distanceAttenuation * light.shadowAttenuation);
             }
 
             half4 frag(Varyings input) : SV_Target0
@@ -225,20 +225,32 @@ Shader "Custom/BoidsInstanced"
                 inputData.normalizedScreenSpaceUV = GetNormalizedScreenSpaceUV(input.positionCS.xy);
 
                 half4 shadowMask = CalculateShadowMask(inputData);
-                
-                float3 lighting = 0;
-                
+                uint meshRenderingLayers = GetMeshRenderingLayer();
+
+                float3 lighting = SampleSH(normalWS);
+
                 Light mainLight = GetMainLight(TransformWorldToShadowCoord(input.positionWS), input.positionWS, shadowMask);
-                mainLight.distanceAttenuation = 1;
-                lighting += ShadingFunction(normalWS, mainLight);
-                
+                #if defined(_LIGHT_COOKIES)
+                    mainLight.color *= SampleMainLightCookie(input.positionWS);
+                #endif
+                #ifdef _LIGHT_LAYERS
+                if (IsMatchingLightLayer(mainLight.layerMask, meshRenderingLayers))
+                #endif
+                {
+                    lighting += ShadingFunction(normalWS, mainLight);
+                }
+
 #if defined(_ADDITIONAL_LIGHTS) && defined(_USE_ADDITIONAL_LIGHTS_ON)
-	            
+
 	            #if USE_CLUSTER_LIGHT_LOOP
 	            for (uint lightIndex = 0; lightIndex < min(URP_FP_DIRECTIONAL_LIGHTS_COUNT, MAX_VISIBLE_LIGHTS); lightIndex++) {
 		            CLUSTER_LIGHT_LOOP_SUBTRACTIVE_LIGHT_CHECK
 		            Light light = GetAdditionalLight(lightIndex, input.positionWS, shadowMask);
+	            #ifdef _LIGHT_LAYERS
+		            if (IsMatchingLightLayer(light.layerMask, meshRenderingLayers))
+	            #endif
 		            {
+		                light.color *= SampleAdditionalLightCookie(lightIndex, input.positionWS);
 		                lighting += ShadingFunction(normalWS, light);
 		            }
 	            }
@@ -247,7 +259,13 @@ Shader "Custom/BoidsInstanced"
                 uint pixelLightCount = GetAdditionalLightsCount();
                 LIGHT_LOOP_BEGIN(pixelLightCount)
                     Light additionalLight = GetAdditionalLight(lightIndex, input.positionWS, shadowMask);
-                    lighting += ShadingFunction(normalWS, additionalLight);
+                #ifdef _LIGHT_LAYERS
+                    if (IsMatchingLightLayer(additionalLight.layerMask, meshRenderingLayers))
+                #endif
+                    {
+                        additionalLight.color *= SampleAdditionalLightCookie(lightIndex, input.positionWS);
+                        lighting += ShadingFunction(normalWS, additionalLight);
+                    }
                 LIGHT_LOOP_END
 #endif
 

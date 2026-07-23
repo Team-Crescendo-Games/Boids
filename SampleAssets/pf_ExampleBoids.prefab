@@ -1,0 +1,164 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &916768875197543568
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1424746044492626656}
+  - component: {fileID: 5908386637957303500}
+  m_Layer: 0
+  m_Name: BoidsZone
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1424746044492626656
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 916768875197543568}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 9201195125899358207}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &5908386637957303500
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 916768875197543568}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fcbaf53d014a48e992f9e603bd1dc66c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: com.teamcrescendo.boids::TeamCrescendo.Boids.BoidsZone
+  type: 0
+  dimensions: {x: 50, y: 20, z: 50}
+--- !u!1 &3575733877411523778
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 9201195125899358207}
+  - component: {fileID: 4711669962183251343}
+  m_Layer: 0
+  m_Name: pf_ExampleBoids
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &9201195125899358207
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3575733877411523778}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.88464, y: 0.85, z: 10.99554}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 1424746044492626656}
+  - {fileID: 5951549532668770871}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &4711669962183251343
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3575733877411523778}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 99dd588c5f4774d979d3508b9d27c673, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: com.teamcrescendo.boids::TeamCrescendo.Boids.BoidsManager
+  computeShader: {fileID: 7200000, guid: 775c0a8e996cc40a8897f80c75e1f925, type: 3}
+  boidMaterial: {fileID: 2100000, guid: 7ac7d10257c7a47eb8d6e5494fe3d8b6, type: 2}
+  boidMesh: {fileID: 4300000, guid: 49a87e3402ce60f4eba9b0498164bdd5, type: 3}
+  forceProviders:
+  - {fileID: 932774696221117363}
+  obstacles: []
+  zones:
+  - {fileID: 5908386637957303500}
+  boidCount: 1000
+  castShadows: 1
+  spawnShape: 0
+  spawnRadius: 50
+  spawnBoxSize: {x: 50, y: 50, z: 50}
+  moveSpeed: 5
+  cellRadius: 5
+  separationWeight: 5
+  alignmentWeight: 2
+  targetWeight: 3
+  obstacleAversionDistance: 3
+  noiseScale: 0.1
+  noiseScrollSpeed: {x: 0.5, y: 0, z: 0.5}
+  minZoneSpeed: 0.5
+  maxZoneSpeed: 2
+  turbulencePower: 3
+--- !u!1 &7012108689116222019
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 5951549532668770871}
+  - component: {fileID: 932774696221117363}
+  m_Layer: 0
+  m_Name: BoidsForceProvider
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &5951549532668770871
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7012108689116222019}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 9201195125899358207}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &932774696221117363
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7012108689116222019}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9ea5bf77208164e7bb00d4b1f6d5acbd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: com.teamcrescendo.boids::TeamCrescendo.Boids.BoidsForceProvider
+  weight: 10
+  influenceRange: 89.4
