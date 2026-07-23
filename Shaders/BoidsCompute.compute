@@ -145,6 +145,7 @@ void SimulateBoids(uint3 id : SV_DispatchThreadID, uint groupIndex : SV_GroupInd
     int neighborCount = 0;
 
     uint numTiles = (numBoids + THREAD_GROUP_SIZE - 1) / THREAD_GROUP_SIZE;
+    float cellRadiusSq = cellRadius * cellRadius;
 
     for (uint tile = 0; tile < numTiles; tile++)
     {
@@ -164,7 +165,8 @@ void SimulateBoids(uint3 id : SV_DispatchThreadID, uint groupIndex : SV_GroupInd
             if (tileStart + i == index) continue;
 
             float3 neighborPos = tilePositions[i];
-            if (distance(position, neighborPos) < cellRadius)
+            float3 toNeighbor = neighborPos - position;
+            if (dot(toNeighbor, toNeighbor) < cellRadiusSq)
             {
                 separationSum += neighborPos;
                 alignmentSum += tileDirections[i];
@@ -210,15 +212,16 @@ void SimulateBoids(uint3 id : SV_DispatchThreadID, uint groupIndex : SV_GroupInd
 
     // obstacle avoidance
     float3 nearestObstaclePos = position;
-    float nearestObstacleDist = 999999.0;
+    float nearestObstacleDistSq = 999999.0;
     float nearestObstacleRadius = 0.0;
-    
+
     for (uint j = 0; j < numObstacles; j++)
     {
-        float dist = distance(position, obstacles[j].position);
-        if (dist < nearestObstacleDist)
+        float3 toObstacle = obstacles[j].position - position;
+        float distSq = dot(toObstacle, toObstacle);
+        if (distSq < nearestObstacleDistSq)
         {
-            nearestObstacleDist = dist;
+            nearestObstacleDistSq = distSq;
             nearestObstaclePos = obstacles[j].position;
             nearestObstacleRadius = obstacles[j].radius;
         }
@@ -229,7 +232,7 @@ void SimulateBoids(uint3 id : SV_DispatchThreadID, uint groupIndex : SV_GroupInd
 
     if (numObstacles > 0)
     {
-        float distToSurface = nearestObstacleDist - nearestObstacleRadius;
+        float distToSurface = sqrt(nearestObstacleDistSq) - nearestObstacleRadius;
         if (distToSurface < obstacleAversionDistance)
         {
             float3 obstacleSteering = position - nearestObstaclePos;
