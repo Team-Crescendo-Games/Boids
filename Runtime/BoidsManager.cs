@@ -37,10 +37,16 @@ namespace TeamCrescendo.Boids
 
         private GraphicsBuffer.IndirectDrawIndexedArgs[] commandData;
         private Boid[] boidsArray;
+        private TargetData[] targetDataArr;
+        private ObstacleData[] obstacleDataArr;
+        private ZoneData[] zoneDataArr;
         private RenderParams renderParams;
+        private bool staticUniformsDirty = true;
     
         [Header("Settings")]
         [SerializeField, Min(1)] private int boidCount = 1000;
+        public int BoidCount => boidCount;
+        [NonSerialized] public bool simulationEnabled = true;
         [Tooltip("Whether boids cast shadows.")] 
         [SerializeField] private bool castShadows = false;
 
@@ -127,10 +133,16 @@ namespace TeamCrescendo.Boids
             if (boidsBuffer == null || !boidsBuffer.IsValid()) return;
 
             UpdateDynamicBuffers();
-            DispatchCompute();
+            if (simulationEnabled)
+                DispatchCompute();
             RenderBoids();
         }
         
+        private void OnValidate()
+        {
+            staticUniformsDirty = true;
+        }
+
         private void OnDrawGizmosSelected()
         {
             Gizmos.color = new Color(0f, 1f, 1f, 0.5f);
@@ -229,6 +241,23 @@ namespace TeamCrescendo.Boids
             argsBuffer.SetData(commandData);
         }
 
+        public void SetBoidCount(int count)
+        {
+            Assert.IsTrue(count >= 1);
+            if (count == boidCount && boidsBuffer != null) return;
+
+            boidCount = count;
+            staticUniformsDirty = true;
+            if (boidsBuffer == null) return; // before Start; initialization will pick up the new count
+
+            boidsBuffer.Release();
+            velocityBuffer.Release();
+            InitializeBoids();
+
+            commandData[0].instanceCount = (uint)boidCount;
+            argsBuffer.SetData(commandData);
+        }
+
         private void ReallocateBuffer(ref GraphicsBuffer buffer, int count, int stride)
         {
             int bufferSize = count > 0 ? count : 1;
@@ -249,7 +278,8 @@ namespace TeamCrescendo.Boids
 
             if (forceProviders.Count > 0)
             {
-                TargetData[] targetDataArr = new TargetData[forceProviders.Count];
+                if (targetDataArr == null || targetDataArr.Length != forceProviders.Count)
+                    targetDataArr = new TargetData[forceProviders.Count];
                 for (int i = 0; i < forceProviders.Count; i++)
                 {
                     if (forceProviders[i] != null)
@@ -275,13 +305,14 @@ namespace TeamCrescendo.Boids
 
             if (realObstacleCount > 0)
             {
-                ObstacleData[] obsDataList = new ObstacleData[realObstacleCount];
+                if (obstacleDataArr == null || obstacleDataArr.Length != realObstacleCount)
+                    obstacleDataArr = new ObstacleData[realObstacleCount];
                 int obstacleIndex = 0;
-                
+
                 // Add local obstacles
                 foreach (var obs in obstacles)
                 {
-                    obsDataList[obstacleIndex++] = new ObstacleData
+                    obstacleDataArr[obstacleIndex++] = new ObstacleData
                     {
                         position = obs.transform.position,
                         radius = obs.radius
@@ -290,13 +321,13 @@ namespace TeamCrescendo.Boids
                 // Add global obstacles
                 foreach (var globalObs in BoidsObstacle.GlobalObstacles)
                 {
-                    obsDataList[obstacleIndex++] = new ObstacleData
+                    obstacleDataArr[obstacleIndex++] = new ObstacleData
                     {
                         position = globalObs.transform.position,
                         radius = globalObs.radius
                     };
                 }
-                obstacleBuffer.SetData(obsDataList);
+                obstacleBuffer.SetData(obstacleDataArr);
             }
 
             // zones
@@ -307,7 +338,8 @@ namespace TeamCrescendo.Boids
 
             if (realZoneCount > 0)
             {
-                ZoneData[] zoneDataArr = new ZoneData[realZoneCount];
+                if (zoneDataArr == null || zoneDataArr.Length != realZoneCount)
+                    zoneDataArr = new ZoneData[realZoneCount];
                 for(int i=0; i<realZoneCount; i++)
                 {
                     var z = zones[i];
@@ -337,24 +369,30 @@ namespace TeamCrescendo.Boids
 
             computeShaderInstance.SetFloat(Time_ID, Time.time);
             computeShaderInstance.SetFloat(DeltaTime_ID, Time.deltaTime);
-        
-            computeShaderInstance.SetFloat(NoiseScale_ID, noiseScale);
-            computeShaderInstance.SetVector(NoiseScroll_ID, noiseScrollSpeed);
-            computeShaderInstance.SetFloat(MinZoneSpeed_ID, minZoneSpeed);
-            computeShaderInstance.SetFloat(MaxZoneSpeed_ID, maxZoneSpeed);
-            computeShaderInstance.SetFloat(TurbulencePower_ID, turbulencePower);
-        
-            computeShaderInstance.SetInt(NumBoids_ID, boidCount);
+
             computeShaderInstance.SetInt(NumTargets_ID, forceProviders.Count);
             computeShaderInstance.SetInt(NumObstacles_ID, TotalObstacleCount);
             computeShaderInstance.SetInt(NumZones_ID, zones.Count);
 
-            computeShaderInstance.SetFloat(MoveSpeed_ID, moveSpeed);
-            computeShaderInstance.SetFloat(CellRadius_ID, cellRadius);
-            computeShaderInstance.SetFloat(SeparationWeight_ID, separationWeight);
-            computeShaderInstance.SetFloat(AlignmentWeight_ID, alignmentWeight);
-            computeShaderInstance.SetFloat(TargetWeight_ID, targetWeight);
-            computeShaderInstance.SetFloat(ObstacleAversionDistance_ID, obstacleAversionDistance);
+            if (staticUniformsDirty)
+            {
+                computeShaderInstance.SetFloat(NoiseScale_ID, noiseScale);
+                computeShaderInstance.SetVector(NoiseScroll_ID, noiseScrollSpeed);
+                computeShaderInstance.SetFloat(MinZoneSpeed_ID, minZoneSpeed);
+                computeShaderInstance.SetFloat(MaxZoneSpeed_ID, maxZoneSpeed);
+                computeShaderInstance.SetFloat(TurbulencePower_ID, turbulencePower);
+
+                computeShaderInstance.SetInt(NumBoids_ID, boidCount);
+
+                computeShaderInstance.SetFloat(MoveSpeed_ID, moveSpeed);
+                computeShaderInstance.SetFloat(CellRadius_ID, cellRadius);
+                computeShaderInstance.SetFloat(SeparationWeight_ID, separationWeight);
+                computeShaderInstance.SetFloat(AlignmentWeight_ID, alignmentWeight);
+                computeShaderInstance.SetFloat(TargetWeight_ID, targetWeight);
+                computeShaderInstance.SetFloat(ObstacleAversionDistance_ID, obstacleAversionDistance);
+
+                staticUniformsDirty = false;
+            }
 
             int threadGroups = Mathf.CeilToInt(boidCount / 256f);
             computeShaderInstance.Dispatch(kernel, threadGroups, 1, 1);

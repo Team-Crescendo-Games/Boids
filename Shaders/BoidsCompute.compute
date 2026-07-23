@@ -264,16 +264,23 @@ void SimulateBoids(uint3 id : SV_DispatchThreadID, uint groupIndex : SV_GroupInd
     for (uint z = 0; z < numZones; z++)
     {
         Zone zone = zones[z];
-        
+
         float3 localPos = mul(zone.worldToLocal, float4(currentBoid.position, 1.0)).xyz;
-        
+        bool clamped = false;
+
         if (zone.type == 0) // Infinite Slab (Y is thickness)
         {
             float halfThickness = zone.dimensions.y * 0.5;
             if (localPos.y > halfThickness)
+            {
                 localPos.y = halfThickness;
+                clamped = true;
+            }
             else if (localPos.y < -halfThickness)
+            {
                 localPos.y = -halfThickness;
+                clamped = true;
+            }
         }
         else if (zone.type == 1) // Box
         {
@@ -281,21 +288,25 @@ void SimulateBoids(uint3 id : SV_DispatchThreadID, uint groupIndex : SV_GroupInd
             float3 distFromEdge = abs(localPos) - halfDim;
             // If any component is > 0, we are outside
             if (any(distFromEdge > 0))
+            {
                 localPos = clamp(localPos, -halfDim, halfDim);
+                clamped = true;
+            }
         }
         else if (zone.type == 2) // Sphere
         {
             float radius = zone.dimensions.x; // Use X as radius
             float dist = length(localPos);
-            
+
             if (dist > radius)
             {
-                float3 dir = normalize(localPos);
-                localPos = dir * radius;
+                localPos = (localPos / dist) * radius;
+                clamped = true;
             }
         }
 
-        currentBoid.position = mul(zone.localToWorld, float4(localPos, 1.0)).xyz;
+        if (clamped)
+            currentBoid.position = mul(zone.localToWorld, float4(localPos, 1.0)).xyz;
     }
 
     boids[index] = currentBoid;
