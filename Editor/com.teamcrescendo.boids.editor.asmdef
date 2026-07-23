@@ -1,0 +1,9 @@
+{
+	"name": "com.teamcrescendo.boids.editor",
+	"references": [
+		"com.teamcrescendo.boids"
+	],
+	"includePlatforms": [
+		"Editor"
+	]
+}

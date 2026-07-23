@@ -23,6 +23,9 @@ namespace TeamCrescendo.Boids
         
         [Tooltip("List of objects that boids avoid.")]
         [SerializeField] private List<BoidsObstacle> obstacles = new();
+
+        [Tooltip("Zones that constrain the boids of this manager.")]
+        [SerializeField] private List<BoidsZone> zones = new();
         private int TotalObstacleCount => obstacles.Count + BoidsObstacle.GlobalObstacles.Count;
 
         private GraphicsBuffer boidsBuffer;
@@ -254,7 +257,8 @@ namespace TeamCrescendo.Boids
                         targetDataArr[i] = new TargetData
                         {
                             position = forceProviders[i].transform.position,
-                            weight = forceProviders[i].weight
+                            weight = forceProviders[i].weight,
+                            influenceRange = forceProviders[i].influenceRange
                         };
                     }
                 }
@@ -296,18 +300,17 @@ namespace TeamCrescendo.Boids
             }
 
             // zones
-            int realZoneCount = BoidsZone.ActiveZones.Count;
+            int realZoneCount = zones.Count;
             int bufferZoneCount = realZoneCount > 0 ? realZoneCount : 1;
 
             ReallocateBuffer(ref zoneBuffer, bufferZoneCount, ZoneData.size);
 
             if (realZoneCount > 0)
             {
-                var activeZones = BoidsZone.ActiveZones;
                 ZoneData[] zoneDataArr = new ZoneData[realZoneCount];
                 for(int i=0; i<realZoneCount; i++)
                 {
-                    var z = activeZones[i];
+                    var z = zones[i];
                     zoneDataArr[i] = new ZoneData
                     {
                         worldToLocal = z.transform.worldToLocalMatrix,
@@ -344,7 +347,7 @@ namespace TeamCrescendo.Boids
             computeShaderInstance.SetInt(NumBoids_ID, boidCount);
             computeShaderInstance.SetInt(NumTargets_ID, forceProviders.Count);
             computeShaderInstance.SetInt(NumObstacles_ID, TotalObstacleCount);
-            computeShaderInstance.SetInt(NumZones_ID, BoidsZone.ActiveZones.Count);
+            computeShaderInstance.SetInt(NumZones_ID, zones.Count);
 
             computeShaderInstance.SetFloat(MoveSpeed_ID, moveSpeed);
             computeShaderInstance.SetFloat(CellRadius_ID, cellRadius);

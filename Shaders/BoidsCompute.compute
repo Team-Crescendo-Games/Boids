@@ -12,6 +12,13 @@ struct Obstacle
     float radius;
 };
 
+struct Target
+{
+    float3 position;
+    float weight;
+    float influenceRange;
+};
+
 struct Zone
 {
     float4x4 worldToLocal;
@@ -23,7 +30,7 @@ struct Zone
 // Buffers
 RWStructuredBuffer<Boid> boids;
 RWStructuredBuffer<float3> velocityBuffer;
-StructuredBuffer<float4> targets;
+StructuredBuffer<Target> targets;
 StructuredBuffer<Obstacle> obstacles;
 StructuredBuffer<Zone> zones;
 
@@ -160,26 +167,16 @@ void SimulateBoids(uint3 id : SV_DispatchThreadID)
     float3 targetForce = float3(0, 0, 0);
     for (uint k = 0; k < numTargets; k++)
     {
-        float4 tData = targets[k];
-        float3 tPos = tData.xyz;
-        float tWeight = tData.w;
+        Target t = targets[k];
 
-        float3 dirToTarget = tPos - position;
+        float3 dirToTarget = t.position - position;
         float dist = length(dirToTarget);
-        
-        // Basic distance check to see if we care
-        if (dist > 0.001)
+
+        // Boids outside the influence range ignore this target
+        if (dist > 0.001 && dist < t.influenceRange)
         {
-            // Normalize
             float3 dir = dirToTarget / dist;
-            
-            // Standard inverse-square falloff or linear? 
-            // For stability, let's just use raw weight, maybe dampened by distance slightly
-            // so they don't orbit infinitely.
-            // Formula: Force = Direction * Weight * GlobalMultiplier
-            // If weight is negative, "dir" points TO target, so we get pulled OPPOSITE.
-            
-            targetForce += dir * tWeight; 
+            targetForce += dir * t.weight;
         }
     }
     
@@ -222,7 +219,7 @@ void SimulateBoids(uint3 id : SV_DispatchThreadID)
     // noise velocity zones
     float3 noisePos = (currentBoid.position * noiseScale) + (time * noiseScroll);
     float noiseVal = snoise(noisePos);
-    float t = (noiseVal + 1.0) * 0.5;
+    float t = saturate((noiseVal + 1.0) * 0.5);
     t = pow(t, turbulencePower);
     float currentZoneSpeed = lerp(minZoneSpeed, maxZoneSpeed, t);
 

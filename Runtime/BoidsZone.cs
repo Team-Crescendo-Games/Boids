@@ -17,11 +17,6 @@ namespace TeamCrescendo.Boids
         [Tooltip("XYZ dimensions. For 'InfiniteSlab', only the Y value matters (Thickness).")]
         public Vector3 dimensions = new (50, 20, 50);
 
-        public static readonly System.Collections.Generic.List<BoidsZone> ActiveZones = new();
-
-        private void OnEnable() => ActiveZones.Add(this);
-        private void OnDisable() => ActiveZones.Remove(this);
-
         private void OnDrawGizmos()
         {
             Gizmos.matrix = transform.localToWorldMatrix;

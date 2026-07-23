@@ -17,8 +17,9 @@ internal struct ObstacleData
 internal struct TargetData
 {
     public Vector3 position;
-    public float weight; // Encoded in the .w component of a float4 in shader
-    public const int size = 16;
+    public float weight;
+    public float influenceRange;
+    public const int size = 20;
 }
 
 internal struct ZoneData

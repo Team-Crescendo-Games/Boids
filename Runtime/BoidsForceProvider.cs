@@ -7,7 +7,6 @@ namespace TeamCrescendo.Boids
         [Tooltip("Positive (+) pulls boids towards. Negative (-) pushes boids away.")]
         public float weight = 10f;
 
-        // TODO: currently this is unused!
         [Tooltip("Boids outside this range will ignore this target")]
         public float influenceRange = 20f;
 
