@@ -123,33 +123,58 @@ float snoise(float3 v)
     return 42.0 * dot( m*m, float4( dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3) ) );
 }
 
-[numthreads(256, 1, 1)]
-void SimulateBoids(uint3 id : SV_DispatchThreadID)
+#define THREAD_GROUP_SIZE 256
+
+groupshared float3 tilePositions[THREAD_GROUP_SIZE];
+groupshared float3 tileDirections[THREAD_GROUP_SIZE];
+
+[numthreads(THREAD_GROUP_SIZE, 1, 1)]
+void SimulateBoids(uint3 id : SV_DispatchThreadID, uint groupIndex : SV_GroupIndex)
 {
     uint index = id.x;
-    if (index >= numBoids) return;
 
-    Boid currentBoid = boids[index];
+    // Out-of-range threads must still participate in the tiled loop barriers;
+    // clamp their reads and discard their results after the loop.
+    Boid currentBoid = boids[min(index, numBoids - 1)];
     float3 position = currentBoid.position;
     float3 forward = currentBoid.direction;
 
-    // flocking algorithm
+    // flocking algorithm, tiled through groupshared memory
     float3 separationSum = float3(0, 0, 0);
     float3 alignmentSum = float3(0, 0, 0);
     int neighborCount = 0;
 
-    for (uint i = 0; i < numBoids; i++)
-    {
-        if (i == index) continue;
+    uint numTiles = (numBoids + THREAD_GROUP_SIZE - 1) / THREAD_GROUP_SIZE;
 
-        float3 neighborPos = boids[i].position;
-        if (distance(position, neighborPos) < cellRadius)
+    for (uint tile = 0; tile < numTiles; tile++)
+    {
+        uint tileStart = tile * THREAD_GROUP_SIZE;
+        uint loadIndex = tileStart + groupIndex;
+        if (loadIndex < numBoids)
         {
-            separationSum += neighborPos;
-            alignmentSum += boids[i].direction;
-            neighborCount++;
+            Boid b = boids[loadIndex];
+            tilePositions[groupIndex] = b.position;
+            tileDirections[groupIndex] = b.direction;
         }
+        GroupMemoryBarrierWithGroupSync();
+
+        uint tileCount = min(THREAD_GROUP_SIZE, numBoids - tileStart);
+        for (uint i = 0; i < tileCount; i++)
+        {
+            if (tileStart + i == index) continue;
+
+            float3 neighborPos = tilePositions[i];
+            if (distance(position, neighborPos) < cellRadius)
+            {
+                separationSum += neighborPos;
+                alignmentSum += tileDirections[i];
+                neighborCount++;
+            }
+        }
+        GroupMemoryBarrierWithGroupSync();
     }
+
+    if (index >= numBoids) return;
 
     float3 alignmentResult = float3(0, 0, 0);
     float3 separationResult = float3(0, 0, 0);
